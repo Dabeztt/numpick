@@ -53,6 +53,7 @@ import cardBackFavicon from '../assets/cards/card_back.png';
       import { saveSeatResult } from '../lib/supabase';
 
       const sfx = new SoundFX();
+      const MAX_SEATS = Math.max(1, Number(import.meta.env.PUBLIC_MAX_SEATS) || 14);
 
       // App State
       let currentPlayerName = '';
@@ -279,21 +280,28 @@ import cardBackFavicon from '../assets/cards/card_back.png';
       }
 
       // Show Congrats Modal
-      function showCongratsModal(finalSum: number) {
+      function showCongratsModal(rawSum: number) {
         sfx.playWin();
         triggerMoneyShower();
 
+        // Tính số ghế tối đa theo cấu hình MAX_SEATS (chia vòng tròn bàn tiệc)
+        const seatNumber = ((rawSum - 1) % MAX_SEATS) + 1;
+        const formulaStr =
+          rawSum <= MAX_SEATS
+            ? `${playerHand[0].value} + ${playerHand[1].value} + ${playerHand[2].value} = ${rawSum}`
+            : `${playerHand[0].value} + ${playerHand[1].value} + ${playerHand[2].value} = ${rawSum} (% ${MAX_SEATS})`;
+
         congratsPlayerName.textContent = currentPlayerName.toUpperCase();
-        congratsFormula.textContent = `${playerHand[0].value} + ${playerHand[1].value} + ${playerHand[2].value} = ${finalSum}`;
-        congratsSeatNum.textContent = `GHẾ SỐ ${finalSum}`;
+        congratsFormula.textContent = formulaStr;
+        congratsSeatNum.textContent = `GHẾ SỐ ${seatNumber}`;
 
         modalCongrats.style.display = 'flex';
 
         // Lưu kết quả vào Supabase Database (chạy nền không block UI)
         saveSeatResult({
           player_name: currentPlayerName,
-          seat_number: finalSum,
-          formula: `${playerHand[0].value} + ${playerHand[1].value} + ${playerHand[2].value} = ${finalSum}`,
+          seat_number: seatNumber,
+          formula: formulaStr,
           cards: playerHand.map((c) => c.label)
         });
 
