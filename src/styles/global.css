@@ -1,0 +1,99 @@
+@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=VT323&display=swap");
+
+:root {
+  --bg-casino: #006b38;
+  --gold-primary: #f59e0b;
+  --gold-light: #fbbf24;
+  --gold-dark: #b45309;
+  --wood-border: #92400e;
+  --balatro-orange: #f08c00;
+  --balatro-red: #e03131;
+  --balatro-blue: #1971c2;
+  --card-w: 68px;
+  --card-h: 92px;
+  --deck-w: 58px;
+  --deck-h: 78px;
+  --fan-overlap: -25px;
+  --font-arcade: "Chakra Petch", sans-serif;
+  --font-mono: "VT323", monospace;
+}
+
+@media (min-width: 480px) {
+  :root {
+    --card-w: 88px;
+    --card-h: 118px;
+    --deck-w: 74px;
+    --deck-h: 100px;
+    --fan-overlap: -30px;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --card-w: 120px;
+    --card-h: 160px;
+    --deck-w: 100px;
+    --deck-h: 134px;
+    --fan-overlap: -40px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --card-w: 146px;
+    --card-h: 196px;
+    --deck-w: 124px;
+    --deck-h: 166px;
+    --fan-overlap: -48px;
+  }
+}
+
+@media (min-width: 1366px) {
+  :root {
+    --card-w: 160px;
+    --card-h: 215px;
+    --deck-w: 136px;
+    --deck-h: 182px;
+    --fan-overlap: -52px;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+html,
+body {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--bg-casino);
+  color: #ffffff;
+  font-family: var(--font-arcade);
+}
+
+/* Subtle CRT Grain / Felt Texture */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 255, 255, 0.08) 0%,
+      transparent 80%
+    ),
+    linear-gradient(rgba(0, 0, 0, 0.12) 50%, transparent 50%);
+  background-size: 100% 100%, 100% 4px;
+  pointer-events: none;
+  z-index: 99;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}

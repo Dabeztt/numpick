@@ -1,0 +1,325 @@
+---
+import '../styles/global.css';
+import PokerTable from '../components/PokerTable.astro';
+import CardHand from '../components/CardHand.astro';
+import DecorativeDeck from '../components/DecorativeDeck.astro';
+import NameModal from '../components/NameModal.astro';
+import CongratsModal from '../components/CongratsModal.astro';
+import cardBackFavicon from '../assets/cards/card_back.png';
+---
+
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title></title>
+    <link rel="icon" type="image/png" href={cardBackFavicon.src} />
+  </head>
+  <body>
+    <!-- Fullscreen Edge-to-Edge Poker Table -->
+    <PokerTable>
+      <!-- 1. TỤ BẮC (TOP - XOAY 180 ĐỘ) -->
+      <CardHand tuId="tuCards0" direction="top" />
+
+      <!-- MIDDLE ROW: TỤ TÂY (LEFT) + DECK TRANG TRÍ + TỤ ĐÔNG (RIGHT) -->
+      <div class="table-middle-row">
+        <!-- 3. TỤ TÂY (LEFT - XOAY 90 ĐỘ) -->
+        <CardHand tuId="tuCards2" direction="left" />
+
+        <!-- BỘ BÀI BỐC TRANG TRÍ Ở GIỮA -->
+        <DecorativeDeck />
+
+        <!-- 4. TỤ ĐÔNG (RIGHT - XOAY -90 ĐỘ) -->
+        <CardHand tuId="tuCards3" direction="right" />
+      </div>
+
+      <!-- 2. TỤ NAM (BOTTOM - TỤ CỦA BẠN - XOAY 0 ĐỘ) -->
+      <CardHand tuId="tuCards1" direction="bottom" isPlayer={true} />
+    </PokerTable>
+
+    <!-- MODAL 1: NHẬP TÊN LÚC ĐẦU -->
+    <NameModal />
+
+    <!-- MODAL 2: CHÚC MỪNG VÀO GHẾ -->
+    <CongratsModal />
+
+    <!-- Client-side Game Controller -->
+    <script>
+      import confetti from 'canvas-confetti';
+      import gsap from 'gsap';
+      import { SoundFX } from '../lib/sound';
+      import { generateFullDeck, cardBackSrc, type Card } from '../lib/deck';
+
+      const sfx = new SoundFX();
+
+      // App State
+      let currentPlayerName = '';
+      let playerHand: Card[] = [];
+      let playerFlipped = [false, false, false];
+
+      const modalName = document.getElementById('modalName')!;
+      const formName = document.getElementById('formName') as HTMLFormElement;
+      const inputName = document.getElementById('inputName') as HTMLInputElement;
+      const modalCongrats = document.getElementById('modalCongrats')!;
+      const congratsPlayerName = document.getElementById('congratsPlayerName')!;
+      const congratsFormula = document.getElementById('congratsFormula')!;
+      const congratsSeatNum = document.getElementById('congratsSeatNum')!;
+
+      // 4 directions in clockwise casino dealing order:
+      // 0: Top (Bắc), 3: Right (Đông), 1: Bottom (Nam - Player), 2: Left (Tây)
+      const DEAL_ORDER = [0, 3, 1, 2];
+      const DIR_BASE_ANGLES: Record<number, number> = {
+        0: 180, // Top
+        3: -90, // Right
+        1: 0,   // Bottom (Player)
+        2: 90   // Left
+      };
+      const FAN_SLOT_OFFSETS = [-11, 0, 11];
+
+      // Render initial placeholders
+      function renderPlaceholders() {
+        for (let t = 0; t < 4; t++) {
+          const container = document.getElementById(`tuCards${t}`)!;
+          container.innerHTML = '';
+          for (let c = 0; c < 3; c++) {
+            const slot = document.createElement('div');
+            slot.className = `card-slot fan-slot-${c}`;
+            const ph = document.createElement('div');
+            ph.className = 'card-placeholder';
+            slot.appendChild(ph);
+            container.appendChild(slot);
+          }
+        }
+      }
+
+      // Fly a card out from center deck to target slot
+      function flyCard(
+        fromRect: DOMRect,
+        toRect: DOMRect,
+        targetAngle: number,
+        onArrive: () => void
+      ) {
+        const arena = document.getElementById('flightArena') || document.body;
+        const flyingCard = document.createElement('div');
+        flyingCard.className = 'flying-card';
+        flyingCard.innerHTML = `<img src="${cardBackSrc}" alt="Card" class="pixelated" style="width: 100%; height: 100%; object-fit: fill; border-radius: 8px; display: block;" />`;
+        arena.appendChild(flyingCard);
+
+        // Center deck subtle recoil animation
+        const deckShoe = document.getElementById('deckShoe');
+        if (deckShoe) {
+          gsap.fromTo(deckShoe, { scale: 0.93 }, { scale: 1, duration: 0.18, ease: 'power1.out' });
+        }
+
+        gsap.fromTo(
+          flyingCard,
+          {
+            left: fromRect.left,
+            top: fromRect.top,
+            width: fromRect.width,
+            height: fromRect.height,
+            rotation: 0,
+            scale: 0.9,
+            opacity: 1
+          },
+          {
+            left: toRect.left,
+            top: toRect.top,
+            width: toRect.width,
+            height: toRect.height,
+            rotation: targetAngle,
+            scale: 1,
+            duration: 0.35,
+            ease: 'power2.out',
+            onComplete: () => {
+              onArrive();
+              flyingCard.remove();
+            }
+          }
+        );
+      }
+
+      // Deal Cards to 4 Tu (3 Rounds Flying Out from Center Deck)
+      async function startDealSequence() {
+        const fullDeck = generateFullDeck().sort(() => Math.random() - 0.5);
+
+        // Player's hand: 3 random cards
+        playerHand = [fullDeck[0], fullDeck[1], fullDeck[2]];
+        playerFlipped = [false, false, false];
+
+        // Ensure all 4 hands have their 3 slots ready in fixed layout
+        renderPlaceholders();
+
+        const deckShoe = document.getElementById('deckShoe')!;
+        const deckRect = deckShoe.getBoundingClientRect();
+
+        // Deal 3 rounds across 4 directions
+        for (let round = 0; round < 3; round++) {
+          for (const tu of DEAL_ORDER) {
+            sfx.playDeal();
+
+            const container = document.getElementById(`tuCards${tu}`)!;
+            const slot = container.children[round] as HTMLElement;
+            if (!slot) continue;
+
+            const slotRect = slot.getBoundingClientRect();
+            const targetAngle = DIR_BASE_ANGLES[tu] + FAN_SLOT_OFFSETS[round];
+
+            flyCard(deckRect, slotRect, targetAngle, () => {
+              // Clear placeholder in this fixed slot
+              slot.innerHTML = '';
+
+              if (tu === 1) {
+                // Player's card (Interactive & Fanned)
+                slot.classList.add('card-clickable');
+                const card = playerHand[round];
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                wrapper.innerHTML = `
+                  <div class="card-inner">
+                    <div class="card-face card-back">
+                      <img src="${cardBackSrc}" alt="Card Back" class="pixelated" />
+                    </div>
+                    <div class="card-face card-front">
+                      <img src="${card.image}" alt="${card.label}" class="pixelated" />
+                    </div>
+                  </div>
+                `;
+                const cardIdx = round;
+                slot.addEventListener('click', () => {
+                  handlePlayerCardClick(cardIdx, wrapper);
+                });
+                slot.appendChild(wrapper);
+              } else {
+                // Decorative card for other tụ (Only card back)
+                const wrapper = document.createElement('div');
+                wrapper.className = 'card-wrapper';
+                wrapper.innerHTML = `
+                  <div class="card-inner">
+                    <div class="card-face card-back">
+                      <img src="${cardBackSrc}" alt="Card Back" class="pixelated" />
+                    </div>
+                  </div>
+                `;
+                slot.appendChild(wrapper);
+              }
+            });
+
+            await new Promise((r) => setTimeout(r, 140));
+          }
+        }
+      }
+
+      // Handle card flip on player's hand
+      function handlePlayerCardClick(cardIdx: number, wrapper: HTMLElement) {
+        if (playerFlipped[cardIdx]) return; // already flipped
+
+        sfx.playFlip();
+        playerFlipped[cardIdx] = true;
+        wrapper.classList.add('flipped');
+
+        const flippedCards = playerHand.filter((_, idx) => playerFlipped[idx]);
+        const currentSum = flippedCards.reduce((acc, c) => acc + c.value, 0);
+
+        // If all 3 cards are flipped!
+        if (flippedCards.length === 3) {
+          setTimeout(() => {
+            showCongratsModal(currentSum);
+          }, 600);
+        }
+      }
+
+      // Falling Casino Money & Gold Coins Shower
+      function triggerMoneyShower() {
+        const duration = 2.8 * 1000;
+        const animationEnd = Date.now() + duration;
+
+        function randomInRange(min: number, max: number) {
+          return Math.random() * (max - min) + min;
+        }
+
+        const interval: any = setInterval(() => {
+          const timeLeft = animationEnd - Date.now();
+          if (timeLeft <= 0) {
+            return clearInterval(interval);
+          }
+
+          const particleCount = 35 * (timeLeft / duration);
+
+          // Dollar bills & Banknotes (Emerald / green / gold rectangles)
+          confetti({
+            particleCount,
+            startVelocity: 25,
+            spread: 360,
+            ticks: 80,
+            origin: { x: randomInRange(0.1, 0.9), y: Math.random() - 0.2 },
+            colors: ['#10b981', '#059669', '#34d399', '#ffd700', '#f59e0b', '#fbbf24'],
+            shapes: ['square'],
+            scalar: randomInRange(1.2, 1.7),
+            gravity: 0.75,
+            zIndex: 10000
+          });
+
+          // Gold coins (Glimmering gold circles)
+          confetti({
+            particleCount: particleCount * 0.7,
+            startVelocity: 20,
+            spread: 360,
+            ticks: 70,
+            origin: { x: randomInRange(0.1, 0.9), y: Math.random() - 0.2 },
+            colors: ['#ffd700', '#f59e0b', '#fbbf24', '#fef08a', '#ffffff'],
+            shapes: ['circle'],
+            scalar: randomInRange(0.8, 1.2),
+            gravity: 1.1,
+            zIndex: 10000
+          });
+        }, 180);
+      }
+
+      // Show Congrats Modal
+      function showCongratsModal(finalSum: number) {
+        sfx.playWin();
+        triggerMoneyShower();
+
+        congratsPlayerName.textContent = currentPlayerName.toUpperCase();
+        congratsFormula.textContent = `${playerHand[0].value} + ${playerHand[1].value} + ${playerHand[2].value} = ${finalSum}`;
+        congratsSeatNum.textContent = `GHẾ SỐ ${finalSum}`;
+
+        modalCongrats.style.display = 'flex';
+
+        // Lock player hand so cards cannot be touched again (only 1 turn)
+        const playerContainer = document.getElementById('tuCards1');
+        if (playerContainer) {
+          playerContainer.querySelectorAll('.card-clickable').forEach((el) => {
+            el.classList.remove('card-clickable');
+            (el as HTMLElement).style.cursor = 'default';
+          });
+        }
+      }
+
+      // Submit Name Form
+      formName.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = inputName.value.trim();
+        if (!name) return;
+
+        currentPlayerName = name;
+        modalName.style.display = 'none';
+        startDealSequence();
+      });
+
+      // Initial Setup
+      renderPlaceholders();
+      inputName.focus();
+
+      // Test helper: auto deal if ?test=1
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('test') === '1') {
+        modalName.style.display = 'none';
+        currentPlayerName = 'Test';
+        startDealSequence();
+      }
+    </script>
+  </body>
+</html>
