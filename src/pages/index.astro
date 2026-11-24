@@ -50,6 +50,7 @@ import cardBackFavicon from '../assets/cards/card_back.png';
       import gsap from 'gsap';
       import { SoundFX } from '../lib/sound';
       import { generateFullDeck, cardBackSrc, type Card } from '../lib/deck';
+      import { saveSeatResult } from '../lib/supabase';
 
       const sfx = new SoundFX();
 
@@ -287,6 +288,14 @@ import cardBackFavicon from '../assets/cards/card_back.png';
         congratsSeatNum.textContent = `GHẾ SỐ ${finalSum}`;
 
         modalCongrats.style.display = 'flex';
+
+        // Lưu kết quả vào Supabase Database (chạy nền không block UI)
+        saveSeatResult({
+          player_name: currentPlayerName,
+          seat_number: finalSum,
+          formula: `${playerHand[0].value} + ${playerHand[1].value} + ${playerHand[2].value} = ${finalSum}`,
+          cards: playerHand.map((c) => c.label)
+        });
 
         // Lock player hand so cards cannot be touched again (only 1 turn)
         const playerContainer = document.getElementById('tuCards1');

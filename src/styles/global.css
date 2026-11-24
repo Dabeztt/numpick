@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=VT323&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&display=swap");
 
 :root {
   --bg-casino: #006b38;
@@ -7,7 +7,6 @@
   --gold-dark: #b45309;
   --wood-border: #92400e;
   --balatro-orange: #f08c00;
-  --balatro-red: #e03131;
   --balatro-blue: #1971c2;
   --card-w: 68px;
   --card-h: 92px;
@@ -15,7 +14,6 @@
   --deck-h: 78px;
   --fan-overlap: -25px;
   --font-arcade: "Chakra Petch", sans-serif;
-  --font-mono: "VT323", monospace;
 }
 
 @media (min-width: 480px) {

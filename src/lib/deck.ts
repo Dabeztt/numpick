@@ -41,7 +41,7 @@ export function generateFullDeck(): Card[] {
       const filename = `${r.name}_of_${s}.png`;
       const assetKey = `../assets/cards/${filename}`;
       const imgModule = cardAssets[assetKey];
-      const imgSrc = imgModule ? imgModule.default.src : `/cards/${filename}`;
+      const imgSrc = imgModule ? imgModule.default.src : '';
 
       deck.push({
         rank: r.name,
